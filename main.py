@@ -74,7 +74,6 @@ class Tokenizer:
         if tipo != None and valor != None:
             tokenCreate = Token(tipo, valor)
             self.next = tokenCreate
-            print(f"Token: {tipo}, {valor}")
 
 ############## Parser Class ########################
 
