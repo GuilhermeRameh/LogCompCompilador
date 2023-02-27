@@ -6,6 +6,17 @@ class Token:
         self.tipo = tipo
         self.valor = valor
 
+############ PREPROCESS CLASS ######################
+
+class Preprocess:
+    def filter(doc):
+        if ".txt" in doc:
+            with open(doc, 'r') as file:
+                print()
+        else:
+            lista = doc.split("#")
+            return lista[0]
+
 ############ TOKENIZER CLASS ######################
 class Tokenizer:
     def __init__(self, source) -> None:
@@ -15,6 +26,8 @@ class Tokenizer:
         self.selectNext()
 
     def selectNext(self):
+        tipo = None
+        valor = None
         if self.position == -1:
             self.position += 1  
         if self.position >= len(self.source):
@@ -25,8 +38,13 @@ class Tokenizer:
             valor = ""
             while letra == " ":
                 self.position += 1
-                letra = self.source[self.position]
-            
+                if self.position < len(self.source):
+                    letra = self.source[self.position]
+                else:
+                    letra = "END"
+                    valor = ""
+                    tipo = "EOF"
+                
             if letra.isnumeric():
                 while letra in ["0","1","2","3","4","5","6","7","8","9"]:
                     tipo = "INT"
@@ -53,8 +71,10 @@ class Tokenizer:
                 valor = letra
                 self.position += 1
 
-        tokenCreate = Token(tipo, valor)
-        self.next = tokenCreate
+        if tipo != None and valor != None:
+            tokenCreate = Token(tipo, valor)
+            self.next = tokenCreate
+            print(f"Token: {tipo}, {valor}")
 
 ############## Parser Class ########################
 
@@ -122,13 +142,15 @@ class Parser:
 #--------------------------------------------------------#
 
 DEBUG = False
-debugCadeia = "2+2-5+4"
+debugCadeia = "1*1 #Bruh"
 
 def main():
     if DEBUG==True:
         cadeia = debugCadeia
     else:
         cadeia = sys.argv[1]
+
+    cadeia = Preprocess.filter(cadeia)
 
     parser = Parser()
     print(parser.run(cadeia))
