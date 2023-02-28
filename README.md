@@ -5,4 +5,5 @@
 
 # Diagrama de Sintaxe:
 
-![DiagramaDeSintaxe](https://user-images.githubusercontent.com/62567654/218558157-b5e3a5b4-dd18-4a74-b6d2-d3132020add7.png)
+
+![diagramaSintatico drawio](https://user-images.githubusercontent.com/62567654/221831822-4a345676-db6a-42cc-b29c-f7063c959cdf.png)
