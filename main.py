@@ -44,7 +44,8 @@ class Tokenizer:
                     letra = "END"
                     valor = ""
                     tipo = "EOF"
-                
+
+            # NOTE: números 
             if letra.isnumeric():
                 while letra in ["0","1","2","3","4","5","6","7","8","9"]:
                     tipo = "INT"
@@ -54,6 +55,7 @@ class Tokenizer:
                         break
                     letra = self.source[self.position]
 
+            # NOTE: +, -, *, /
             elif letra == "+":
                 tipo = "PLUS"
                 valor = letra
@@ -71,6 +73,16 @@ class Tokenizer:
                 valor = letra
                 self.position += 1
 
+            # NOTE: Lidando com parenteses
+            elif letra == "(":
+                tipo = "OPENPAR"
+                valor = letra
+                self.position += 1
+            elif letra == ")":
+                tipo = "CLOSEPAR"
+                valor = letra
+                self.position += 1
+
         if tipo != None and valor != None:
             tokenCreate = Token(tipo, valor)
             self.next = tokenCreate
@@ -81,48 +93,62 @@ class Parser:
     def __init__(self):
         self.tokenizer = Tokenizer
 
-    def parseTerm(self):
-        buffer = 0
-        #Se o token atual for numero
+    def parseFactor(self):
+        bufferFactor = 0
+
         if self.tokenizer.next.tipo == "INT":
             #copia para resultado e pega proximo valor
-            buffer = int(self.tokenizer.next.valor)
+            bufferFactor = int(self.tokenizer.next.valor)
             self.tokenizer.selectNext()
-            #enquanto token for + ou -
-            while self.tokenizer.next.tipo in ["MULT", "DIV"]:
-                #Se for +
-                if self.tokenizer.next.tipo == "MULT":
-                    self.tokenizer.selectNext()
-                    if self.tokenizer.next.tipo == "INT":
-                        buffer *= int(self.tokenizer.next.valor)
-                    else:
-                        raise Exception(f"ERRO SINTÁTICO:\n    >Era esperado um TOKEN do tipo 'INT', mas recebeu '{self.tokenizer.next.tipo}'")
-                #Se for -
-                if self.tokenizer.next.tipo == "DIV":
-                    self.tokenizer.selectNext()
-                    if self.tokenizer.next.tipo == "INT":
-                        buffer = buffer//int(self.tokenizer.next.valor)
-                    else:
-                        raise Exception(f"ERRO SINTÁTICO:\n    >Era esperado um TOKEN do tipo 'INT', mas recebeu '{self.tokenizer.next.tipo}'")
-                self.tokenizer.selectNext()
-            return buffer
+            return bufferFactor
+        
         else:
-            raise Exception("ERRO SINTÁTICO:\n    >O primeiro TOKEN da cadeia deve ser do tipo 'INT'.")
+            if self.tokenizer.next.tipo == "PLUS":
+                self.tokenizer.selectNext()
+                bufferFactor += self.parseFactor()
+            elif self.tokenizer.next.tipo == "MINUS":
+                self.tokenizer.selectNext()
+                bufferFactor -= self.parseFactor()
+            elif self.tokenizer.next.tipo == "OPENPAR":
+                self.tokenizer.selectNext()
+                bufferFactor = self.parseExpression()
+                if self.tokenizer.next.tipo != "CLOSEPAR":
+                    raise Exception(f"ERRO PARSER:\n > Parênteses não fechados.")
+                self.tokenizer.selectNext()
+                
+            return bufferFactor
 
+    def parseTerm(self):
+        bufferTerm = self.parseFactor()
+
+        #enquanto token for * ou /
+        while self.tokenizer.next.tipo in ["MULT", "DIV"]:
+            #Se for *
+            if self.tokenizer.next.tipo == "MULT":
+                self.tokenizer.selectNext()
+                bufferTerm *= self.parseFactor()
+               
+            if self.tokenizer.next.tipo == "DIV":
+                self.tokenizer.selectNext()
+                bufferTerm //= self.parseFactor()
+
+        return bufferTerm
+       
     def parseExpression(self):
 
         resultado = self.parseTerm()
 
-        #enquanto token for + ou -
-        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV"]:
+        #enquanto token for +, -, *, /
+        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV", "OPENPAR"]:
             #Se for +
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
-                resultado += self.parseTerm()
+                resultado += self.parseTerm() # Chamou TERM
             #Se for -
             if self.tokenizer.next.tipo == "MINUS":
                 self.tokenizer.selectNext()
-                resultado -= self.parseTerm()
+                resultado -= self.parseTerm() # Chamou TERM
+
         return resultado
 
     def run(self, code):
@@ -140,8 +166,9 @@ class Parser:
 #                         MAIN                           #
 #--------------------------------------------------------#
 
+# NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
 DEBUG = False
-debugCadeia = "1*1 #Bruh"
+debugCadeia = "4/(1+1)*2 #Bruh"
 
 def main():
     if DEBUG==True:
