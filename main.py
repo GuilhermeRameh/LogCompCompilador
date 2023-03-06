@@ -115,7 +115,9 @@ class Parser:
                 if self.tokenizer.next.tipo != "CLOSEPAR":
                     raise Exception(f"ERRO PARSER:\n > Parênteses não fechados.")
                 self.tokenizer.selectNext()
-                
+
+            else:
+                raise Exception(f"ERRO PARSER:\n > Frase acabou em um token não numérico ou repitiu tokens não numéricos inválidos")  
             return bufferFactor
 
     def parseTerm(self):
