@@ -6,4 +6,5 @@
 # Diagrama de Sintaxe:
 
 
-![diagramaSintatico drawio](https://user-images.githubusercontent.com/62567654/221831822-4a345676-db6a-42cc-b29c-f7063c959cdf.png)
+
+![diagramaSintatico drawio](https://user-images.githubusercontent.com/62567654/224727579-09d7a08a-a793-4d03-96e0-fc487edefee2.png)
