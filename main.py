@@ -1,4 +1,50 @@
 import sys
+from abc import ABC, abstractmethod
+
+############### Node and Ops Classes ##############
+
+class Node(ABC):
+   
+    def Evaluate(self):
+        pass
+
+
+class BinOp(Node):
+    def __init__(self, value, children) -> None:
+            self.value = value
+            self.children = children
+
+    def Evaluate(self):
+        if self.value=="+":
+            return self.children[0].Evaluate()+self.children[1].Evaluate()
+        elif self.value=="-":
+            return self.children[0].Evaluate()-self.children[1].Evaluate()
+        elif self.value=="*":
+            return self.children[0].Evaluate()*self.children[1].Evaluate()
+        elif self.value=="/":
+            return self.children[0].Evaluate()//self.children[1].Evaluate()
+
+class UnOp(Node):
+    def __init__(self, value, children) -> None:
+        self.value = value
+        self.children = children
+
+    def Evaluate(self):
+        if self.value=="-":
+            return -self.children[0].Evaluate()
+        return self.children[0].Evaluate()
+
+class IntVal(Node):
+    def __init__(self, value) -> None:
+        self.value = value
+        self.children = [Node(x) for x in []]
+
+    def Evaluate(self):
+        return int(self.value)
+
+class NoOp(Node):
+    pass
+
 
 ################# TOKEN CLASS #####################
 class Token:
@@ -10,9 +56,15 @@ class Token:
 
 class Preprocess:
     def filter(doc):
-        if ".txt" in doc:
+        if ".jl" in doc:
             with open(doc, 'r') as file:
-                print()
+                Lines = file.readlines()
+            toReturn = ""
+            for line in Lines:
+                lista = line.split("#")
+                toReturn+=lista[0]
+            return toReturn
+
         else:
             lista = doc.split("#")
             return lista[0]
@@ -94,71 +146,86 @@ class Parser:
         self.tokenizer = Tokenizer
 
     def parseFactor(self):
+        # TODO: mesma parada
         bufferFactor = 0
+        thisNode = NoOp()
 
         if self.tokenizer.next.tipo == "INT":
             #copia para resultado e pega proximo valor
-            bufferFactor = int(self.tokenizer.next.valor)
+            # bufferFactor = int(self.tokenizer.next.valor)
+            thisNode = IntVal(int(self.tokenizer.next.valor))
             self.tokenizer.selectNext()
-            return bufferFactor
+            return thisNode
         
         else:
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
-                bufferFactor += self.parseFactor()
+                # bufferFactor += self.parseFactor()
+                thisNode = UnOp("+", self.parseFactor())
             elif self.tokenizer.next.tipo == "MINUS":
                 self.tokenizer.selectNext()
-                bufferFactor -= self.parseFactor()
+                # bufferFactor -= self.parseFactor()
+                thisNode = UnOp("-", self.parseFactor())
             elif self.tokenizer.next.tipo == "OPENPAR":
                 self.tokenizer.selectNext()
-                bufferFactor = self.parseExpression()
+                # bufferFactor = self.parseExpression()
+                thisNode = self.parseExpression()
                 if self.tokenizer.next.tipo != "CLOSEPAR":
                     raise Exception(f"ERRO PARSER:\n > Parênteses não fechados.")
                 self.tokenizer.selectNext()
 
             else:
                 raise Exception(f"ERRO PARSER:\n > Frase acabou em um token não numérico ou repitiu tokens não numéricos inválidos")  
-            return bufferFactor
+            return thisNode
 
     def parseTerm(self):
+        # TODO: ja sabe né
         bufferTerm = self.parseFactor()
+        thisNode = bufferTerm
+        
 
         #enquanto token for * ou /
         while self.tokenizer.next.tipo in ["MULT", "DIV"]:
             #Se for *
             if self.tokenizer.next.tipo == "MULT":
                 self.tokenizer.selectNext()
-                bufferTerm *= self.parseFactor()
+                thisNode = BinOp("*", [thisNode, self.parseFactor()])
+                # bufferTerm *= self.parseFactor()
                
             if self.tokenizer.next.tipo == "DIV":
                 self.tokenizer.selectNext()
-                bufferTerm //= self.parseFactor()
+                thisNode = BinOp("/", [thisNode, self.parseFactor()])
+                # bufferTerm //= self.parseFactor()
 
-        return bufferTerm
+        return thisNode
        
     def parseExpression(self):
 
+        # TODO: Depois que der certo, isso é redundante, arrumar
         resultado = self.parseTerm()
+        thisNode = resultado
 
         #enquanto token for +, -, *, /
         while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV", "OPENPAR"]:
             #Se for +
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
-                resultado += self.parseTerm() # Chamou TERM
+                thisNode = BinOp("+", [thisNode, self.parseTerm()])
+                # resultado += self.parseTerm() # Chamou TERM
             #Se for -
             if self.tokenizer.next.tipo == "MINUS":
                 self.tokenizer.selectNext()
-                resultado -= self.parseTerm() # Chamou TERM
+                thisNode = BinOp("-", [thisNode, self.parseTerm()])
+                # resultado -= self.parseTerm() # Chamou TERM
 
-        return resultado
+        return thisNode
 
     def run(self, code):
         self.tokenizer = Tokenizer(code)
-        toReturn = self.parseExpression()
+        NodetoReturn = self.parseExpression()
         #checa se terminou de consumir
         if self.tokenizer.next.tipo == "EOF":
-            return toReturn
+            return NodetoReturn.Evaluate()
         else:
             raise Exception(f"ERRO PARSER:\n O parser saiu e não consumiu todos os tokens.")
 
@@ -170,7 +237,7 @@ class Parser:
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
 DEBUG = False
-debugCadeia = "4/(1+1)*2 #Bruh"
+debugCadeia = "2+2"
 
 def main():
     if DEBUG==True:
@@ -181,7 +248,8 @@ def main():
     cadeia = Preprocess.filter(cadeia)
 
     parser = Parser()
-    print(parser.run(cadeia))
+    finalNode = parser.run(cadeia)
+    print(finalNode)
 
 
 if __name__ == "__main__":
