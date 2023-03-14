@@ -161,11 +161,11 @@ class Parser:
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
                 # bufferFactor += self.parseFactor()
-                thisNode = UnOp("+", self.parseFactor())
+                thisNode = UnOp("+", [self.parseFactor()])
             elif self.tokenizer.next.tipo == "MINUS":
                 self.tokenizer.selectNext()
                 # bufferFactor -= self.parseFactor()
-                thisNode = UnOp("-", self.parseFactor())
+                thisNode = UnOp("-", [self.parseFactor()])
             elif self.tokenizer.next.tipo == "OPENPAR":
                 self.tokenizer.selectNext()
                 # bufferFactor = self.parseExpression()
@@ -237,7 +237,7 @@ class Parser:
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
 DEBUG = False
-debugCadeia = "2+2"
+debugCadeia = "-1"
 
 def main():
     if DEBUG==True:
