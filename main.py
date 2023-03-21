@@ -159,7 +159,7 @@ class Tokenizer:
                     if self.position >= len(self.source):
                         break
                     letra = self.source[self.position]
-                if letra != " ":
+                if letra.isalpha() or letra == "_":
                     raise Exception(f'ERRO SINTÁTICO:\n    > Há uma entrada no código que começa com um número e continua com outras letras do alfabeto.')
 
             # NOTE: +, -, *, /

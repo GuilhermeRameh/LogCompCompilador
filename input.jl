@@ -1,2 +1,1 @@
-1x = 432
-println(1x)
+println(1 + 1)
