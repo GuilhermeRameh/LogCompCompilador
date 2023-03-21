@@ -1,13 +1,62 @@
 import sys
-from abc import ABC, abstractmethod
+from abc import ABC
+
+############### Lista de palavras reservadas #############
+
+reservedWords = [
+    "println",
+]
+
+################ Global SymbolTable ###################
+
+class SymbolTable:
+    def __init__(self) -> None:
+        self.dicionario = {}
+    
+    def Getter(self, key):
+        return self.dicionario[key]
+
+    def Setter(self, key, value):
+        self.dicionario[key] = value
+
+global ST
+ST = SymbolTable()
 
 ############### Node and Ops Classes ##############
 
 class Node(ABC):
-   
     def Evaluate(self):
         pass
 
+class Identifier(Node):
+    def __init__(self, value) -> None:
+        self.value = value
+        self.children = [Node(x) for x in []]
+    
+    def Evaluate(self):
+        return ST.Getter(self.value)
+
+class Print(Node):
+    def __init__(self, children) -> None:
+        self.children = children
+    
+    def Evaluate(self):
+        print(self.children[0].Evaluate())
+    
+class Assignment(Node):
+    def __init__(self, children) -> None:
+        self.children = children
+    
+    def Evaluate(self):
+        ST.Setter(self.children[0].value, self.children[1].Evaluate())
+        
+class Block(Node):
+    def __init__(self, children) -> None:
+        self.children = children
+
+    def Evaluate(self):
+        for child in self.children:
+            child.Evaluate()
 
 class BinOp(Node):
     def __init__(self, value, children) -> None:
@@ -97,6 +146,10 @@ class Tokenizer:
                     valor = ""
                     tipo = "EOF"
 
+            if letra=="\n":
+                tipo = "NEXTLINE"
+                self.position += 1
+
             # NOTE: números 
             if letra.isnumeric():
                 while letra in ["0","1","2","3","4","5","6","7","8","9"]:
@@ -135,6 +188,25 @@ class Tokenizer:
                 valor = letra
                 self.position += 1
 
+            # NOTE: Lidando com o =
+            elif letra == "=":
+                tipo = "ASSIGN"
+                valor = letra
+                self.position += 1    
+
+
+            # Lida com palavras / variaveis
+            if letra.isalpha():
+                tipo = "IDENTIFIER"
+                while letra.isalnum() or letra=="_":
+                    valor += letra
+                    self.position += 1
+                    letra=self.source[self.position]
+
+                if valor in reservedWords:
+                    tipo = valor.upper()            
+    
+
         if tipo != None and valor != None:
             tokenCreate = Token(tipo, valor)
             self.next = tokenCreate
@@ -145,6 +217,36 @@ class Parser:
     def __init__(self):
         self.tokenizer = Tokenizer
 
+    def parseStatment(self):
+        if self.tokenizer.next.tipo == "IDENTIFIER":
+            idNode = Identifier(self.tokenizer.next.valor)
+            self.tokenizer.selectNext()
+            if self.tokenizer.next.tipo == "ASSIGN":
+                self.tokenizer.selectNext()
+                expressionNode = self.parseExpression()
+                if self.tokenizer.next.tipo != "NEXTLINE":
+                    raise # TODO:
+                self.tokenizer.selectNext()
+                return Assignment([idNode, expressionNode])
+            else:
+                raise # TODO:
+
+        elif self.tokenizer.next.tipo == "PRINTLN":
+            self.tokenizer.selectNext()
+            printNode = Print([self.parseExpression()])
+            return printNode
+        
+        elif self.tokenizer.next.tipo == "NEXTLINE":
+            self.tokenizer.selectNext()
+            return NoOp()
+
+    def parseBlock(self):
+        childrenList = []
+        while self.tokenizer.next.tipo != "EOF":
+            childrenList.append(self.parseStatment())
+        return Block(childrenList)
+
+
     def parseFactor(self):
         # TODO: mesma parada
         bufferFactor = 0
@@ -154,6 +256,11 @@ class Parser:
             #copia para resultado e pega proximo valor
             # bufferFactor = int(self.tokenizer.next.valor)
             thisNode = IntVal(int(self.tokenizer.next.valor))
+            self.tokenizer.selectNext()
+            return thisNode
+
+        elif self.tokenizer.next.tipo == "IDENTIFIER":
+            thisNode = Identifier(self.tokenizer.next.valor)
             self.tokenizer.selectNext()
             return thisNode
         
@@ -222,7 +329,7 @@ class Parser:
 
     def run(self, code):
         self.tokenizer = Tokenizer(code)
-        NodetoReturn = self.parseExpression()
+        NodetoReturn = self.parseBlock()
         #checa se terminou de consumir
         if self.tokenizer.next.tipo == "EOF":
             return NodetoReturn.Evaluate()
@@ -236,11 +343,13 @@ class Parser:
 #--------------------------------------------------------#
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
-DEBUG = False
-debugCadeia = "-1"
+DEBUG = True
+debugCadeia = '''a = 1
+println(a)
+'''
 
 def main():
-    if DEBUG==True:
+    if DEBUG==False:
         cadeia = debugCadeia
     else:
         cadeia = sys.argv[1]
@@ -248,8 +357,7 @@ def main():
     cadeia = Preprocess.filter(cadeia)
 
     parser = Parser()
-    finalNode = parser.run(cadeia)
-    print(finalNode)
+    parser.run(cadeia)
 
 
 if __name__ == "__main__":
