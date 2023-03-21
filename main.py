@@ -159,6 +159,8 @@ class Tokenizer:
                     if self.position >= len(self.source):
                         break
                     letra = self.source[self.position]
+                if letra != " ":
+                    raise Exception(f'ERRO SINTÁTICO:\n    > Há uma entrada no código que começa com um número e continua com outras letras do alfabeto.')
 
             # NOTE: +, -, *, /
             elif letra == "+":
@@ -348,9 +350,8 @@ class Parser:
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
 DEBUG = True
-debugCadeia = '''a = 1
-println(a)
-'''
+debugCadeia = '''1x = 432
+println(1x)'''
 
 def main():
     if DEBUG==False:
