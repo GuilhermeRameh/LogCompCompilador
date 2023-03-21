@@ -225,11 +225,11 @@ class Parser:
                 self.tokenizer.selectNext()
                 expressionNode = self.parseExpression()
                 if self.tokenizer.next.tipo != "NEXTLINE":
-                    raise # TODO:
+                    raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
                 self.tokenizer.selectNext()
                 return Assignment([idNode, expressionNode])
             else:
-                raise # TODO:
+                raise Exception(f"ERRO PARSER:\n > Variavel sem assign ou fora de println")
 
         elif self.tokenizer.next.tipo == "PRINTLN":
             self.tokenizer.selectNext()
@@ -239,6 +239,10 @@ class Parser:
         elif self.tokenizer.next.tipo == "NEXTLINE":
             self.tokenizer.selectNext()
             return NoOp()
+    
+        else:
+            raise Exception(f"ERRO PARSER:\n > Frase começando com um número")  
+
 
     def parseBlock(self):
         childrenList = []
