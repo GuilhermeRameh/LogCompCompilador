@@ -1,1 +1,2 @@
-println(1 + 1)
+x = readln()
+println(x)
