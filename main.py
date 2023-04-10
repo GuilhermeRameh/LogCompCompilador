@@ -287,7 +287,10 @@ class Tokenizer:
                 while letra.isalnum() or letra=="_":
                     valor += letra
                     self.position += 1
-                    letra=self.source[self.position]
+                    if (self.position<len(self.source)):
+                        letra=self.source[self.position]
+                    else:
+                        break
 
                 if valor in reservedWords:
                     tipo = valor.upper()            
@@ -325,7 +328,7 @@ class Parser:
             if self.tokenizer.next.tipo == "ASSIGN":
                 self.tokenizer.selectNext()
                 expressionNode = self.parseExpression()
-                if self.tokenizer.next.tipo != "NEXTLINE":
+                if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
                     raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
                 self.tokenizer.selectNext()
                 return Assignment([idNode, expressionNode])
@@ -350,7 +353,7 @@ class Parser:
                 self.tokenizer.selectNext()
                 blockNode = Block(childrenList)
                 whileNode = While([condition, blockNode])
-                if self.tokenizer.next.tipo != "NEXTLINE":
+                if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
                     raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
                 self.tokenizer.selectNext()
             else:
@@ -361,8 +364,8 @@ class Parser:
         elif self.tokenizer.next.tipo == "IF":
             self.tokenizer.selectNext()
             condition = self.parseRelExpression()
-            self.tokenizer.selectNext()
             if self.tokenizer.next.tipo == "NEXTLINE":
+                self.tokenizer.selectNext()
                 childrenList = []
                 while self.tokenizer.next.tipo != "END":
                     if self.tokenizer.next.tipo == "ELSE":
@@ -380,9 +383,9 @@ class Parser:
                     nodeFalse = Block(childrenList)
                     ifNode = If([condition, nodeTrue, nodeFalse])
                 else:
-                    ifNode = If([condition, blockNode])
-                if self.tokenizer.next.tipo != "NEXTLINE":
-                    raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
+                    ifNode = If([condition, nodeTrue])
+                if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
+                    raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\n'")
                 self.tokenizer.selectNext()
                 return ifNode
         
@@ -484,7 +487,7 @@ class Parser:
         thisNode = self.parseTerm()
 
         #enquanto token for +, -, *, /
-        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV", "OPENPAR", "OR"]:
+        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV", "OPENPAR", "OR", "AND"]:
             #Se for +
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
@@ -521,8 +524,10 @@ class Parser:
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
 DEBUG = False
-debugCadeia = '''1x = 432
-println(1x)'''
+debugCadeia = '''if 1==1
+println(1)
+end
+'''
 
 def main():
     if DEBUG==True:
