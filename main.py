@@ -9,6 +9,7 @@ reservedWords = [
     "if", 
     "else",
     "end",
+    "readline",
 ]
 
 ################ Global SymbolTable ###################
@@ -40,6 +41,7 @@ class While(Node):
         condition = self.children[0].Evaluate()
         while condition:
             self.children[1].Evaluate()
+            condition = self.children[0].Evaluate()
 
 class If(Node):
     def __init__(self, children) -> None:
@@ -264,7 +266,7 @@ class Tokenizer:
                 if letra == "&":
                     tipo = "AND"
                     valor += letra
-                    self.postion += 1
+                    self.position += 1
                 else:
                     raise Exception(f"ERRO TOKENIZER:\n > Usou apenas um &, devem ser dois: '&&'")
                   
@@ -275,7 +277,7 @@ class Tokenizer:
                 if letra == "|":
                     tipo = "OR"
                     valor += letra
-                    self.postion += 1
+                    self.position += 1
                 else:
                     raise Exception(f"ERRO TOKENIZER:\n > Usou apenas um &, devem ser dois: '||'")
                 
@@ -327,7 +329,7 @@ class Parser:
             self.tokenizer.selectNext()
             if self.tokenizer.next.tipo == "ASSIGN":
                 self.tokenizer.selectNext()
-                expressionNode = self.parseExpression()
+                expressionNode = self.parseRelExpression()
                 if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
                     raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
                 self.tokenizer.selectNext()
@@ -342,19 +344,27 @@ class Parser:
         
         # NEW
         elif self.tokenizer.next.tipo == "WHILE":
+            # Consome token "while"
             self.tokenizer.selectNext()
+            # Consome e salva condição a partir de RelExpression
             condition = self.parseRelExpression()
-            self.tokenizer.selectNext()
+            
             if self.tokenizer.next.tipo == "NEXTLINE":
+                # Consome \n
+                self.tokenizer.selectNext()
+
                 childrenList = []
                 while self.tokenizer.next.tipo != "END":
                     childrenList.append(self.parseStatment())
-                    self.tokenizer.selectNext()
+                    
+                # Consome o "end"
                 self.tokenizer.selectNext()
+
                 blockNode = Block(childrenList)
                 whileNode = While([condition, blockNode])
                 if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
                     raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
+                # Consome \n ou final
                 self.tokenizer.selectNext()
             else:
                 raise Exception(f"ERRO PARSER:\n    > Chamada da função 'while' incorreta.")
@@ -362,30 +372,49 @@ class Parser:
         
         # NEW
         elif self.tokenizer.next.tipo == "IF":
+            # Consome o token "if"
             self.tokenizer.selectNext()
+            # Guarda a condição dado a repsosta de um RelExpression
             condition = self.parseRelExpression()
+            # Verifica \n
             if self.tokenizer.next.tipo == "NEXTLINE":
+                # Consome \n
                 self.tokenizer.selectNext()
+
                 childrenList = []
-                while self.tokenizer.next.tipo != "END":
+                while self.tokenizer.next.tipo != "END" and self.tokenizer.next.tipo != "EOF":
+                    childrenList.append(self.parseStatment())
                     if self.tokenizer.next.tipo == "ELSE":
                         break
-                    childrenList.append(self.parseStatment())
-                    self.tokenizer.selectNext()
-                self.tokenizer.selectNext()
+                
+                # Salva o node caso a condição seja verdade
                 nodeTrue = Block(childrenList)
+
+                # Se tiver o else
                 if self.tokenizer.next.tipo == "ELSE":
+                    # Consome o token de else
+                    self.tokenizer.selectNext()
+                    if self.tokenizer.next.tipo != "NEXTLINE":
+                        raise Exception(f"ERRO PARSER:\n    > Chamou 'else' de maneira incorreta")
+                    # Consome o \n
+                    self.tokenizer.selectNext()
+
                     childrenList = []
                     while self.tokenizer.next.tipo != "END":
                         childrenList.append(self.parseStatment())
-                        self.tokenizer.selectNext()
+                    # Consome o end
                     self.tokenizer.selectNext()
+                        
                     nodeFalse = Block(childrenList)
                     ifNode = If([condition, nodeTrue, nodeFalse])
+
                 else:
+                    # Consome o "end" se nao tiver else
+                    self.tokenizer.selectNext()
                     ifNode = If([condition, nodeTrue])
+
                 if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
-                    raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\n'")
+                    raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
                 self.tokenizer.selectNext()
                 return ifNode
         
@@ -443,7 +472,7 @@ class Parser:
                 self.tokenizer.selectNext()
 
             # NEW
-            elif self.tokenizer.next.tipo == "READLN":
+            elif self.tokenizer.next.tipo == "READLINE":
                 self.tokenizer.selectNext()
                 if self.tokenizer.next.tipo == "OPENPAR":
                     self.tokenizer.selectNext()
@@ -452,7 +481,7 @@ class Parser:
                     self.tokenizer.selectNext()
                     return IntVal(int(input()))
                 else:
-                    raise Exception(f"ERRO PARSER:\n    > invocação de 'readln' incorreta.")
+                    raise Exception(f"ERRO PARSER:\n    > invocação de 'readline' incorreta.")
 
             else:
                 raise Exception(f"ERRO PARSER:\n > Frase acabou em um token não numérico ou repitiu tokens não numéricos inválidos")  
@@ -463,7 +492,7 @@ class Parser:
         
 
         #enquanto token for * ou /
-        while self.tokenizer.next.tipo in ["MULT", "DIV"]:
+        while self.tokenizer.next.tipo in ["MULT", "DIV", "AND"]:
             #Se for *
             if self.tokenizer.next.tipo == "MULT":
                 self.tokenizer.selectNext()
@@ -487,7 +516,7 @@ class Parser:
         thisNode = self.parseTerm()
 
         #enquanto token for +, -, *, /
-        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV", "OPENPAR", "OR", "AND"]:
+        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV", "OPENPAR", "OR"]:
             #Se for +
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
@@ -523,10 +552,14 @@ class Parser:
 #--------------------------------------------------------#
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
-DEBUG = False
-debugCadeia = '''if 1==1
-println(1)
-end
+DEBUG = True
+debugCadeia = '''
+
+   
+    x = readline()
+    println(x)
+
+
 '''
 
 def main():
