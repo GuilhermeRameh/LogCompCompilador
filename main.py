@@ -446,9 +446,6 @@ class Parser:
             return thisNode
 
         elif self.tokenizer.next.tipo == "IDENTIFIER":
-            # tenta pegar alguma coisa da symbol table, se ela nao tiver isso, da erro!
-            ST.Getter(self.tokenizer.next.valor)
-
             thisNode = Identifier(self.tokenizer.next.valor)
             self.tokenizer.selectNext()
             return thisNode
@@ -521,7 +518,7 @@ class Parser:
         thisNode = self.parseTerm()
 
         #enquanto token for +, -, *, /
-        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "MULT", "DIV", "OPENPAR", "OR"]:
+        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "OR"]:
             #Se for +
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
@@ -557,14 +554,9 @@ class Parser:
 #--------------------------------------------------------#
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
-DEBUG = False
-debugCadeia = '''
-
-
-    x = Readline()
-    println(x)
-
-
+DEBUG = True
+debugCadeia = '''x = Readline()
+println(x)
 '''
 
 def main():
