@@ -1,6 +1,2 @@
 
-
-   
-    x = readline()
-    println(x)
-
+println(1)
