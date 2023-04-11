@@ -557,7 +557,7 @@ class Parser:
 #--------------------------------------------------------#
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
-DEBUG = True
+DEBUG = False
 debugCadeia = '''
 
 
