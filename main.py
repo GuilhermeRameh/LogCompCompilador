@@ -10,7 +10,6 @@ reservedWords = [
     "else",
     "end",
     "readline",
-    "Readline",
 ]
 
 ################ Global SymbolTable ###################
@@ -20,6 +19,8 @@ class SymbolTable:
         self.dicionario = {}
     
     def Getter(self, key):
+        if key not in self.dicionario.keys():
+            raise Exception(f"ERRO SymbolTable:\n   > a variável '{key}' não foi declarada anteriormente.")
         return self.dicionario[key]
 
     def Setter(self, key, value):
@@ -445,10 +446,13 @@ class Parser:
             return thisNode
 
         elif self.tokenizer.next.tipo == "IDENTIFIER":
+            # tenta pegar alguma coisa da symbol table, se ela nao tiver isso, da erro!
+            ST.Getter(self.tokenizer.next.valor)
+
             thisNode = Identifier(self.tokenizer.next.valor)
             self.tokenizer.selectNext()
             return thisNode
-        
+            
         else:
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
@@ -553,11 +557,11 @@ class Parser:
 #--------------------------------------------------------#
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
-DEBUG = False
+DEBUG = True
 debugCadeia = '''
 
-   
-    x = readline()
+
+    x = Readline()
     println(x)
 
 
