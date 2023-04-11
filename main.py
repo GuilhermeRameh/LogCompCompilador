@@ -10,6 +10,7 @@ reservedWords = [
     "else",
     "end",
     "readline",
+    "Readline",
 ]
 
 ################ Global SymbolTable ###################
