@@ -12,6 +12,11 @@ reservedWords = [
     "readline",
 ]
 
+tipagem = [
+    "Int",
+    "String",
+]
+
 ################ Global SymbolTable ###################
 
 class SymbolTable:
@@ -24,7 +29,15 @@ class SymbolTable:
         return self.dicionario[key]
 
     def Setter(self, key, value):
+        # NOTE: Verificação de tipagem
+        if (value[0] == self.dicionario[key][0]):
+            self.dicionario[key] = value
+        else:
+            raise Exception(f"ERRO SymbolTable:\n   > Não é possível atribuir o valor de tipo: {value[0]} para uma variável {self.dicionario[key][0]}.")
+
+    def Create(self, key, value):
         self.dicionario[key] = value
+
 
 global ST
 ST = SymbolTable()
@@ -34,6 +47,20 @@ ST = SymbolTable()
 class Node(ABC):
     def Evaluate(self):
         pass
+
+class VarDec(Node):
+    def __init__(self, value, children) -> None:
+        self.value = value
+        self.children = children
+
+    def Evaluate(self):
+        tipo = self.value
+        if len(self.children) == 1:
+            if tipo=="Int": atribuicao=("INT",0)
+            elif tipo=="String": atribuicao=("STRING","")
+            ST.Create(self.children[0].value, atribuicao)
+        elif len(self.children) == 2:
+            ST.Create(self.children[0].value, self.children[1].Evaluate())
 
 class While(Node):
     def __init__(self, children) -> None:
@@ -93,24 +120,31 @@ class BinOp(Node):
             self.children = children
 
     def Evaluate(self):
+        #NEW
+        #NOTE: Dando erro quando uma operação de dois tipos diferentes de variaveis
+        if (self.children[0].Evaluate()[0] != self.children[1].Evaluate()[0]) and self.value != ".":
+            raise Exception(f"ERRO DE TIPO:\n   > Não pode realizar operação '{self.value}' entre os tipos '{self.children[0][0]}' e '{self.children[1][0]}'")
         if self.value=="+":
-            return self.children[0].Evaluate()+self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1]+self.children[1].Evaluate()[1]
         elif self.value=="-":
-            return self.children[0].Evaluate()-self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1]-self.children[1].Evaluate()[1]
         elif self.value=="*":
-            return self.children[0].Evaluate()*self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1]*self.children[1].Evaluate()[1]
         elif self.value=="/":
-            return self.children[0].Evaluate()//self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1]//self.children[1].Evaluate()[1]
         elif self.value=="&&":
-            return self.children[0].Evaluate() and self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1] and self.children[1].Evaluate()[1]
         elif self.value=="||":
-            return self.children[0].Evaluate() or self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1] or self.children[1].Evaluate()[1]
         elif self.value=="==":
-            return self.children[0].Evaluate() == self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1] == self.children[1].Evaluate()[1]
         elif self.value=="<":
-            return self.children[0].Evaluate() < self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1] < self.children[1].Evaluate()[1]
         elif self.value==">":
-            return self.children[0].Evaluate() > self.children[1].Evaluate()
+            return self.children[0].Evaluate()[1] > self.children[1].Evaluate()[1]
+        # NEW
+        elif self.value==".":
+            return str(self.children[0].Evaluate()[1]) + str(self.children[1].Evaluate()[1])
 
 class UnOp(Node):
     def __init__(self, value, children) -> None:
@@ -130,7 +164,15 @@ class IntVal(Node):
         self.children = [Node(x) for x in []]
 
     def Evaluate(self):
-        return int(self.value)
+        return self.value
+    
+class StringVal(Node):
+    def __init__(self, value) -> None:
+        self.value = value
+        self.children = [Node(x) for x in []]
+
+    def Evaluate(self):
+        return self.value
 
 class NoOp(Node):
     pass
@@ -221,6 +263,13 @@ class Tokenizer:
                 valor = letra
                 self.position += 1
 
+            #NEW
+            #NOTE: Lidando com operador CONCATENAR STRING
+            elif letra == ".":
+                tipo = "CONCAT"
+                valor = letra
+                self.position += 1
+
             # NOTE: Lidando com parenteses
             elif letra == "(":
                 tipo = "OPENPAR"
@@ -281,9 +330,32 @@ class Tokenizer:
                     valor += letra
                     self.position += 1
                 else:
-                    raise Exception(f"ERRO TOKENIZER:\n > Usou apenas um &, devem ser dois: '||'")
+                    raise Exception(f"ERRO TOKENIZER:\n > Usou apenas um |, devem ser dois: '||'")
                 
-
+            # NOTE: Lidando com as declaracoes de variaveis '::'
+            elif letra == ":":
+                valor = letra
+                self.position += 1
+                letra = self.source[self.position]
+                if letra == ":":
+                    tipo = "VARDEC"
+                    valor += letra
+                    self.position += 1
+                else:
+                    raise Exception(f"ERRO TOKENIZER:\n > Usou apenas um :, devem ser dois: '::'")
+                
+            # NOTE: Lida com Strings
+            if letra == '"':
+                tipo = "STRING"
+                self.position += 1
+                letra = self.source[self.position]
+                while letra != '"':
+                    valor += letra
+                    self.position += 1
+                    if (self.position<len(self.source)):
+                        letra=self.source[self.position]
+                    else: break
+                self.position += 1
 
             # NOTE: Lida com palavras / variaveis
             if letra.isalpha():
@@ -297,7 +369,9 @@ class Tokenizer:
                         break
 
                 if valor in reservedWords:
-                    tipo = valor.upper()            
+                    tipo = valor.upper()
+                if valor in tipagem:
+                    tipo = "TYPE"        
     
 
         if tipo != None and valor != None:
@@ -336,6 +410,25 @@ class Parser:
                     raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
                 self.tokenizer.selectNext()
                 return Assignment([idNode, expressionNode])
+            # NEW: Lidando com declarações de variáveis
+            elif self.tokenizer.next.tipo == "VARDEC":
+                self.tokenizer.selectNext()
+                if self.tokenizer.next.tipo == "TYPE":
+                    tipo = self.tokenizer.next.valor
+                    self.tokenizer.selectNext()
+                    if self.tokenizer.next.tipo == "ASSIGN":
+                        self.tokenizer.selectNext()
+                        expressionNode = self.parseRelExpression()
+                        if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
+                            raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
+                        self.tokenizer.selectNext()
+                        return VarDec(tipo ,[idNode, expressionNode])
+                    elif self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
+                        raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
+                    return VarDec(tipo, [idNode])
+
+                else:
+                    raise Exception(f"ERRO PARSER:\n > Declaração de variável não usou tipagem corretamente.")
             else:
                 raise Exception(f"ERRO PARSER:\n > Variavel sem assign ou fora de println")
 
@@ -343,8 +436,7 @@ class Parser:
             self.tokenizer.selectNext()
             printNode = Print([self.parseExpression()])
             return printNode
-        
-        # NEW
+
         elif self.tokenizer.next.tipo == "WHILE":
             # Consome token "while"
             self.tokenizer.selectNext()
@@ -372,7 +464,6 @@ class Parser:
                 raise Exception(f"ERRO PARSER:\n    > Chamada da função 'while' incorreta.")
             return whileNode
         
-        # NEW
         elif self.tokenizer.next.tipo == "IF":
             # Consome o token "if"
             self.tokenizer.selectNext()
@@ -441,12 +532,17 @@ class Parser:
         if self.tokenizer.next.tipo == "INT":
             #copia para resultado e pega proximo valor
             # bufferFactor = int(self.tokenizer.next.valor)
-            thisNode = IntVal(int(self.tokenizer.next.valor))
+            thisNode = IntVal((self.tokenizer.next.tipo, int(self.tokenizer.next.valor)))
             self.tokenizer.selectNext()
             return thisNode
 
         elif self.tokenizer.next.tipo == "IDENTIFIER":
             thisNode = Identifier(self.tokenizer.next.valor)
+            self.tokenizer.selectNext()
+            return thisNode
+        
+        elif self.tokenizer.next.tipo == "STRING":
+            thisNode = StringVal((self.tokenizer.next.tipo, self.tokenizer.next.valor))
             self.tokenizer.selectNext()
             return thisNode
             
@@ -459,7 +555,6 @@ class Parser:
                 self.tokenizer.selectNext()
                 # bufferFactor -= self.parseFactor()
                 thisNode = UnOp("-", [self.parseFactor()])
-             # NEW
             elif self.tokenizer.next.tipo == "NOT":
                 self.tokenizer.selectNext()
                 thisNode = UnOp("!", [self.parseFactor()])
@@ -473,7 +568,6 @@ class Parser:
                     raise Exception(f"ERRO PARSER:\n > Parênteses não fechados.")
                 self.tokenizer.selectNext()
 
-            # NEW
             elif self.tokenizer.next.tipo == "READLINE":
                 self.tokenizer.selectNext()
                 if self.tokenizer.next.tipo == "OPENPAR":
@@ -491,7 +585,6 @@ class Parser:
 
     def parseTerm(self):
         thisNode = self.parseFactor()
-        
 
         #enquanto token for * ou /
         while self.tokenizer.next.tipo in ["MULT", "DIV", "AND"]:
@@ -506,7 +599,6 @@ class Parser:
                 thisNode = BinOp("/", [thisNode, self.parseFactor()])
                 # bufferTerm //= self.parseFactor()
 
-            # NEW
             if self.tokenizer.next.tipo == "AND":
                 self.tokenizer.selectNext()
                 thisNode = BinOp("&&", [thisNode, self.parseFactor()])
@@ -518,7 +610,7 @@ class Parser:
         thisNode = self.parseTerm()
 
         #enquanto token for +, -, *, /
-        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "OR"]:
+        while self.tokenizer.next.tipo in ["PLUS", "MINUS", "OR", "CONCAT"]:
             #Se for +
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
@@ -530,10 +622,14 @@ class Parser:
                 thisNode = BinOp("-", [thisNode, self.parseTerm()])
                 # resultado -= self.parseTerm() # Chamou TERM
             
-            # NEW
             if self.tokenizer.next.tipo == "OR":
                 self.tokenizer.selectNext()
                 thisNode = BinOp("||", [thisNode, self.parseTerm()])
+            
+            #NEW
+            if self.tokenizer.next.tipo == "CONCAT":
+                self.tokenizer.selectNext()
+                thisNode = BinOp(".", [thisNode, self.parseTerm()])
 
 
         return thisNode
@@ -554,9 +650,14 @@ class Parser:
 #--------------------------------------------------------#
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
-DEBUG = False
-debugCadeia = '''x = Readline()
-println(x)
+DEBUG = 1
+debugCadeia = '''x::Int
+y::Int
+z::String = "x: "
+x = 1
+y = 2
+println(x + y)
+println(z . x)
 '''
 
 def main():
