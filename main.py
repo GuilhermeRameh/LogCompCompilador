@@ -30,12 +30,17 @@ class SymbolTable:
 
     def Setter(self, key, value):
         # NOTE: Verificação de tipagem
-        if (value[0] == self.dicionario[key][0]):
-            self.dicionario[key] = value
+        if type(value)==tuple:
+            if (value[0] == self.dicionario[key][0]):
+                self.dicionario[key] = value
+            else:
+                raise Exception(f"ERRO SymbolTable:\n   > Não é possível atribuir o valor de tipo: {value[0]} para uma variável {self.dicionario[key][0]}.")
         else:
-            raise Exception(f"ERRO SymbolTable:\n   > Não é possível atribuir o valor de tipo: {value[0]} para uma variável {self.dicionario[key][0]}.")
-
+            self.dicionario[key] = (self.dicionario[key][0], value)
+        
     def Create(self, key, value):
+        if key in self.dicionario.keys():
+            raise Exception(f"ERRO SymbolTable:\n   > Essa variável já foi declarada")
         self.dicionario[key] = value
 
 
@@ -125,29 +130,42 @@ class BinOp(Node):
     def Evaluate(self):
         #NEW
         #NOTE: Dando erro quando uma operação de dois tipos diferentes de variaveis
-        if (self.children[0].Evaluate()[0] != self.children[1].Evaluate()[0]) and self.value != ".":
-            raise Exception(f"ERRO DE TIPO:\n   > Não pode realizar operação '{self.value}' entre os tipos '{self.children[0][0]}' e '{self.children[1][0]}'")
+        child0Type = None
+        child1Type = None
+        if type(self.children[0].Evaluate())==tuple:
+            child0 = self.children[0].Evaluate()[1]
+            child0Type = self.children[0].Evaluate()[0]
+        else: child0 = self.children[0].Evaluate()
+        if type(self.children[1].Evaluate())==tuple:
+            child1 = self.children[1].Evaluate()[1]
+            child1Type = self.children[1].Evaluate()[0]
+        else: child1 = self.children[1].Evaluate()
+
+        if (child0Type != None and child1Type != None):
+            if child0Type != child1Type and self.value != ".":
+                raise Exception(f"ERRO de TIPAGEM:\n > Operação inválida entre tipos")
+        
         if self.value=="+":
-            return self.children[0].Evaluate()[1]+self.children[1].Evaluate()[1]
+            return child0+child1
         elif self.value=="-":
-            return self.children[0].Evaluate()[1]-self.children[1].Evaluate()[1]
+            return child0-child1
         elif self.value=="*":
-            return self.children[0].Evaluate()[1]*self.children[1].Evaluate()[1]
+            return child0*child1
         elif self.value=="/":
-            return self.children[0].Evaluate()[1]//self.children[1].Evaluate()[1]
+            return child0//child1
         elif self.value=="&&":
-            return self.children[0].Evaluate()[1] and self.children[1].Evaluate()[1]
+            return 1 if child0 and child1 else 0
         elif self.value=="||":
-            return self.children[0].Evaluate()[1] or self.children[1].Evaluate()[1]
+            return 1 if child0 or child1 else 0
         elif self.value=="==":
-            return self.children[0].Evaluate()[1] == self.children[1].Evaluate()[1]
+            return 1 if child0 == child1 else 0
         elif self.value=="<":
-            return self.children[0].Evaluate()[1] < self.children[1].Evaluate()[1]
+            return 1 if child0 < child1 else 0
         elif self.value==">":
-            return self.children[0].Evaluate()[1] > self.children[1].Evaluate()[1]
+            return 1 if child0 > child1 else 0
         # NEW
         elif self.value==".":
-            return str(self.children[0].Evaluate()[1]) + str(self.children[1].Evaluate()[1])
+            return str(child0) + str(child1)
 
 class UnOp(Node):
     def __init__(self, value, children) -> None:
@@ -155,11 +173,15 @@ class UnOp(Node):
         self.children = children
 
     def Evaluate(self):
+        if type(self.children[0].Evaluate())==tuple:
+            child0 = self.children[0].Evaluate()[1]
+        else: child0 = self.children[0].Evaluate()
+
         if self.value=="-":
-            return -self.children[0].Evaluate()
+            return -child0
         elif self.value=="!":
-            return not(self.children[0].Evaluate())
-        return self.children[0].Evaluate()
+            return not(child0)
+        return child0
 
 class IntVal(Node):
     def __init__(self, value) -> None:
@@ -357,11 +379,11 @@ class Tokenizer:
                     self.position += 1
                     if (self.position<len(self.source)):
                         letra=self.source[self.position]
-                    else: break
+                    else: raise Exception(f"ERRO Tokenizer:\n   > Não fechou as aspas de uma string.")
                 self.position += 1
 
             # NOTE: Lida com palavras / variaveis
-            if letra.isalpha():
+            if letra.isalpha() and tipo != "EOF":
                 tipo = "IDENTIFIER"
                 while letra.isalnum() or letra=="_":
                     valor += letra
@@ -478,11 +500,18 @@ class Parser:
                 self.tokenizer.selectNext()
 
                 childrenList = []
+                pulouLinha = False
                 while self.tokenizer.next.tipo != "END" and self.tokenizer.next.tipo != "EOF":
                     childrenList.append(self.parseStatment())
+                    if self.tokenizer.next.tipo == "NEXTLINE":
+                        pulouLinha = True
+                    else: pulouLinha = False
                     if self.tokenizer.next.tipo == "ELSE":
                         break
                 
+                if pulouLinha == False:
+                    raise Exception(f"ERRO PARSER:\n    > Token 'end' precisa estar em uma nova linha.")
+
                 # Salva o node caso a condição seja verdade
                 nodeTrue = Block(childrenList)
 
@@ -654,14 +683,32 @@ class Parser:
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
 DEBUG = 0
-debugCadeia = '''x::Int
-y::Int
-z::String = "x: "
-x = 1
-y = 2
-println(x + y)
-println(z . x)
-'''
+debugCadeia = '''# v2.2 testing
+x_1::Int
+
+x_1 = readline()
+if ((x_1 > 1) && !(x_1 < 1)) 
+x_1 = 3
+
+else 
+
+x_1 = (-20+30)*4*3/40 # teste de comentario
+
+end
+println(x_1)
+x_1 = readline()
+if (x_1 > 1) && !(x_1 < 1)
+x_1 = 3
+else
+x_1 = (-20+30)*12/40
+
+
+end    
+println(x_1)
+while ((x_1 > 1) || (x_1 == 1)) 
+x_1 = x_1 - 1
+println(x_1)
+end'''
 
 def main():
     if DEBUG==True:
@@ -677,3 +724,12 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+'''
+TODO: 
+[x] - corrigir problemas de tentar acessar os valores das tuplas sem saber se o que recebeu é uma tupla
+[ ] - tomar cuidado com verificação de tipos
+[ ] - rezar pra dar certo?
+'''

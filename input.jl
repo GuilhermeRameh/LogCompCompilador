@@ -1,8 +1,7 @@
-x::Int
-y::Int
-z::String = "x: "
-x = 1
-y = 2
-println(x + y)
-println(z . x)
-println(x + z)
+
+
+x::String
+x = "a"
+ y::Int
+y = 1
+println(x==y)
