@@ -142,7 +142,7 @@ class BinOp(Node):
         else: child1 = self.children[1].Evaluate()
 
         if (child0Type != None and child1Type != None):
-            if child0Type != child1Type and self.value != ".":
+            if child0Type != child1Type and (self.value != "." and self.value != "=="):
                 raise Exception(f"ERRO de TIPAGEM:\n > Operação inválida entre tipos")
         
         if self.value=="+":
@@ -460,6 +460,8 @@ class Parser:
         elif self.tokenizer.next.tipo == "PRINTLN":
             self.tokenizer.selectNext()
             printNode = Print([self.parseExpression()])
+            if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
+                raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
             return printNode
 
         elif self.tokenizer.next.tipo == "WHILE":
@@ -500,18 +502,10 @@ class Parser:
                 self.tokenizer.selectNext()
 
                 childrenList = []
-                pulouLinha = False
                 while self.tokenizer.next.tipo != "END" and self.tokenizer.next.tipo != "EOF":
                     childrenList.append(self.parseStatment())
-                    if self.tokenizer.next.tipo == "NEXTLINE":
-                        pulouLinha = True
-                    else: pulouLinha = False
                     if self.tokenizer.next.tipo == "ELSE":
                         break
-                
-                if pulouLinha == False:
-                    raise Exception(f"ERRO PARSER:\n    > Token 'end' precisa estar em uma nova linha.")
-
                 # Salva o node caso a condição seja verdade
                 nodeTrue = Block(childrenList)
 
