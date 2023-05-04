@@ -97,7 +97,10 @@ class Print(Node):
         self.children = children
     
     def Evaluate(self):
-        print(self.children[0].Evaluate())
+        toPrint = self.children[0].Evaluate()
+        if type(toPrint) == tuple:
+            print(self.children[0].Evaluate()[1])
+        else: print(self.children[0].Evaluate())
     
 class Assignment(Node):
     def __init__(self, children) -> None:
