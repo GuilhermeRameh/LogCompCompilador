@@ -650,7 +650,7 @@ class Parser:
 #--------------------------------------------------------#
 
 # NOTE: mudar DEBUG para True caso quiser definir manualmente a entrada
-DEBUG = 1
+DEBUG = 0
 debugCadeia = '''x::Int
 y::Int
 z::String = "x: "
