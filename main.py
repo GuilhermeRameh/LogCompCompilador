@@ -1,5 +1,34 @@
 import sys
-from abc import ABC
+# from abc import ABC
+import uuid
+
+############### CLASSE WRITER ############################
+
+class Writer:
+    def __init__(self) -> None:
+        doc = open("modelo.asm", "r")
+        self.input = doc.read()
+        doc.close()
+        self.header = self.input.split("; codigo gerado pelo compilador")[0]
+        self.footer = self.input.split("; codigo gerado pelo compilador")[1]
+
+    def Prep(self, filename):
+        self.output = open(f"{filename}.asm", "w")
+
+    def Write(self, string):
+        self.output.write(string)
+
+    def Head(self):
+        self.Write(self.header)
+
+    def Foot(self):
+        self.Write(self.footer)
+
+    def Close(self):
+        self.output.close()
+
+global writer
+writer = Writer()
 
 ############### Lista de palavras reservadas #############
 
@@ -32,16 +61,16 @@ class SymbolTable:
         # NOTE: Verificação de tipagem
         if type(value)==tuple:
             if (value[0] == self.dicionario[key][0]):
-                self.dicionario[key] = value
+                self.dicionario[key] = value + (self.dicionario[key][2],)
             else:
                 raise Exception(f"ERRO SymbolTable:\n   > Não é possível atribuir o valor de tipo: {value[0]} para uma variável {self.dicionario[key][0]}.")
         else:
-            self.dicionario[key] = (self.dicionario[key][0], value)
+            self.dicionario[key] = (self.dicionario[key][0], value, self.dicionario[key][2])
         
     def Create(self, key, value):
         if key in self.dicionario.keys():
             raise Exception(f"ERRO SymbolTable:\n   > Essa variável já foi declarada")
-        self.dicionario[key] = value
+        self.dicionario[key] = value + ((-(len(self.dicionario) + 1) * 4),)
 
 
 global ST
@@ -49,14 +78,22 @@ ST = SymbolTable()
 
 ############### Node and Ops Classes ##############
 
-class Node(ABC):
+class Node():
+    unique_id = 0
+    def __init__(self) -> None:
+        Node.unique_id += 1
+        self.id = Node.unique_id
+
+
     def Evaluate(self):
         pass
 
 class VarDec(Node):
     def __init__(self, value, children) -> None:
+        super().__init__()
         self.value = value
         self.children = children
+        self.id = uuid.uuid4()
 
     def Evaluate(self):
         tipo = self.value
@@ -64,58 +101,110 @@ class VarDec(Node):
             if tipo=="Int": atribuicao=("INT",0)
             elif tipo=="String": atribuicao=("STRING","")
             ST.Create(self.children[0].value, atribuicao)
+
+            # NOTE: Parte em assembly
+            writer.Write(f"\nPUSH DWORD 0")
         elif len(self.children) == 2:
             ST.Create(self.children[0].value, self.children[1].Evaluate())
 
+            #NOTE: Parte em assembly
+            writer.Write(f"\nPUSH DWORD 0")
+
 class While(Node):
     def __init__(self, children) -> None:
+        super().__init__()
+        self.children = children
+
+    def Evaluate(self):
+        writer.Write(f"\nLOOP_{self.id}:") #DONE: Implementar labels dinamicas
+        
+        condition = self.children[0].Evaluate()
+        if condition:
+            condition="True"
+        else: condition="False"
+        # while condition:
+        #     self.children[1].Evaluate()
+        #     condition = self.children[0].Evaluate()
+       
+        writer.Write(f"\nMOV {condition}, EBX")
+        writer.Write("\nCMP EBX, False")
+        writer.Write(f"\nJE EXIT_{self.id}") # DONE: Label dinamica
+
+        self.children[1].Evaluate()
+
+        writer.Write(f"\nJMP LOOP_{self.id}") # DONE: dinamica
+        writer.Write(f"\nEXIT_{self.id}:") # DONE: dinamica
+
+class If(Node):
+    def __init__(self, children) -> None:
+        super().__init__()
         self.children = children
 
     def Evaluate(self):
         condition = self.children[0].Evaluate()
-        while condition:
-            self.children[1].Evaluate()
-            condition = self.children[0].Evaluate()
+        if condition:
+            condition="True"
+        else: condition="False"
+        writer.Write(f"\nMOV {condition}, EBX")
+        writer.Write(f"CMP EBX, False")
+        writer.Write(f"JE IF_{self.id}")
 
-class If(Node):
-    def __init__(self, children) -> None:
-        self.children = children
+        if len(self.children)==3:
+            self.children[2].Evaluate()
+        
+        writer.Write(f"JMP END_IF_{self.id}")
+        writer.Write(f"IF_{self.id}")
 
-    def Evaluate(self):
-        if self.children[0].Evaluate():
-            self.children[1].Evaluate()
-        else:
-            if len(self.children) == 3:
-                self.children[2].Evaluate()
+        self.children[1].Evaluate()
+
+        writer.Write(f"END_IF_{self.id}")
 
 
 class Identifier(Node):
     def __init__(self, value) -> None:
+        super().__init__()
         self.value = value
         self.children = [Node(x) for x in []]
     
     def Evaluate(self):
-        return ST.Getter(self.value)
+        to_ret = ST.Getter(self.value)
+        #NOTE: parte em assembly
+        writer.Write(f"\nMOV EBX, [EBP{to_ret[2]}]")
+        return to_ret
+
 
 class Print(Node):
     def __init__(self, children) -> None:
+        super().__init__()
         self.children = children
     
     def Evaluate(self):
         toPrint = self.children[0].Evaluate()
-        if type(toPrint) == tuple:
-            print(self.children[0].Evaluate()[1])
-        else: print(self.children[0].Evaluate())
+        # if type(toPrint) == tuple:
+        # NOTE: Parte em assembly
+        writer.Write(f"\nPUSH EBX")
+        writer.Write(f"\nCALL print")
+        writer.Write(f"\nPOP EBX")
+
+            # print(self.children[0].Evaluate()[1])
+        # else: 
+            # print(self.children[0].Evaluate())
     
 class Assignment(Node):
     def __init__(self, children) -> None:
+        super().__init__()
         self.children = children
     
     def Evaluate(self):
         ST.Setter(self.children[0].value, self.children[1].Evaluate())
+        shift = self.children[0].Evaluate()[2]
+
+        #NOTE: Assembly
+        writer.Write(f"\nMOV [EBP{shift}], EBX")
         
 class Block(Node):
     def __init__(self, children) -> None:
+        super().__init__()
         self.children = children
 
     def Evaluate(self):
@@ -124,71 +213,82 @@ class Block(Node):
 
 class BinOp(Node):
     def __init__(self, value, children) -> None:
-            self.value = value
-            self.children = children
-
-    def Evaluate(self):
-        #NEW
-        #NOTE: Dando erro quando uma operação de dois tipos diferentes de variaveis
-        child0Type = None
-        child1Type = None
-        if type(self.children[0].Evaluate())==tuple:
-            child0 = self.children[0].Evaluate()[1]
-            child0Type = self.children[0].Evaluate()[0]
-        else: child0 = self.children[0].Evaluate()
-        if type(self.children[1].Evaluate())==tuple:
-            child1 = self.children[1].Evaluate()[1]
-            child1Type = self.children[1].Evaluate()[0]
-        else: child1 = self.children[1].Evaluate()
-
-        if (child0Type != None and child1Type != None):
-            if child0Type != child1Type and (self.value != "." and self.value != "=="):
-                raise Exception(f"ERRO de TIPAGEM:\n > Operação inválida entre tipos")
-        
-        if self.value=="+":
-            return child0+child1
-        elif self.value=="-":
-            return child0-child1
-        elif self.value=="*":
-            return child0*child1
-        elif self.value=="/":
-            return child0//child1
-        elif self.value=="&&":
-            return 1 if child0 and child1 else 0
-        elif self.value=="||":
-            return 1 if child0 or child1 else 0
-        elif self.value=="==":
-            return 1 if child0 == child1 else 0
-        elif self.value=="<":
-            return 1 if child0 < child1 else 0
-        elif self.value==">":
-            return 1 if child0 > child1 else 0
-        # NEW
-        elif self.value==".":
-            return str(child0) + str(child1)
-
-class UnOp(Node):
-    def __init__(self, value, children) -> None:
+        super().__init__()
         self.value = value
         self.children = children
 
     def Evaluate(self):
-        if type(self.children[0].Evaluate())==tuple:
-            child0 = self.children[0].Evaluate()[1]
-        else: child0 = self.children[0].Evaluate()
+        child0Type = None
+        child1Type = None
+        child0 = self.children[0].Evaluate()
+        writer.Write(f"\nPUSH EBX")
+        child1 = self.children[1].Evaluate()
+        writer.Write(f"\nPOP EAX")
+
+
+        if self.value=="+":
+            writer.Write(f"\nADD EAX, EBX")
+            # return child0+child1
+        elif self.value=="-":
+            writer.Write(f"\nSUB EAX, EBX")
+            # return child0-child1
+        elif self.value=="*":
+            writer.Write(f"\nMUL EAX, EBX")
+            # return child0*child1
+        elif self.value=="/":
+            writer.Write(f"\nDIV EAX, EBX")
+            # return child0//child1
+        elif self.value=="&&":
+            writer.Write(f"\nAND EAX, EBX")
+            # return 1 if child0 and child1 else 0
+        elif self.value=="||":
+            writer.Write(f"\nOR EAX, EBX")
+            # return 1 if child0 or child1 else 0
+        elif self.value=="==":
+            writer.Write(f"\nCMP EAX, EBX")
+            writer.Write(f"\nCALL binop_je")
+            # return 1 if child0 == child1 else 0
+        elif self.value=="<":
+            writer.Write(f"\nCMP EAX, EBX")
+            writer.Write(f"\nCALL binop_jl")
+            # return 1 if child0 < child1 else 0
+        elif self.value==">":
+            writer.Write(f"\nCMP EAX, EBX")
+            writer.Write(f"\nCALL binop_jg")
+            # return 1 if child0 > child1 else 0
+        # # NEW
+        # elif self.value==".":
+        #     return str(child0) + str(child1)
+        writer.Write(f"\nMOV EBX, EAX")
+
+class UnOp(Node):
+    def __init__(self, value, children) -> None:
+        super().__init__()
+        self.value = value
+        self.children = children
+
+    def Evaluate(self):
+        # if type(self.children[0].Evaluate())==tuple:
+        #     child0 = self.children[0].Evaluate()[1]
+        # else: child0 = self.children[0].Evaluate()
+        child0 = self.children[0].Evaluate()
 
         if self.value=="-":
-            return -child0
+            writer.Write(f"\nMUL EBX, -1")
+            # return -child0
         elif self.value=="!":
-            return not(child0)
-        return child0
+            writer.Write(f"\nNOT EBX")
+            # return not(child0)
+        # return child0
 
 class IntVal(Node):
     def __init__(self, value) -> None:
+        super().__init__()
         self.value = value
         self.children = [Node(x) for x in []]
 
     def Evaluate(self):
+        writer.Write(f"\nMOV EBX, {self.value[1]}")
         return self.value
     
 class StringVal(Node):
@@ -220,7 +320,7 @@ class Preprocess:
             for line in Lines:
                 lista = line.split("#")
                 toReturn+=lista[0]
-            return toReturn
+            return toReturn, doc.split(".")[1][1:]
 
         else:
             lista = doc.split("#")
@@ -710,10 +810,17 @@ def main():
     else:
         cadeia = sys.argv[1]
 
-    cadeia = Preprocess.filter(cadeia)
+    cadeia, filename = Preprocess.filter(cadeia)
+
+    writer.Prep(filename)
+    writer.Head()
+    writer.Write("; codigo gerado pelo compilador\n")
 
     parser = Parser()
     parser.run(cadeia)
+
+    writer.Foot()
+    writer.Close()
 
 
 if __name__ == "__main__":
@@ -723,7 +830,74 @@ if __name__ == "__main__":
 
 '''
 TODO: 
-[x] - corrigir problemas de tentar acessar os valores das tuplas sem saber se o que recebeu é uma tupla
-[ ] - tomar cuidado com verificação de tipos
-[ ] - rezar pra dar certo?
+[ ] - separar codigo asm em cabecalho, escrever o codigo a partir da AST aqui,  dps escreve rodapé.
+
+returns -> MOV EBX valor (sempre em EBX)
+
+NOTE:
+IntVal - eval - MOV EBX (VALOR)
+
+NOTE:
+BinOp - eval - 
+    eval filho 0
+    PUSH EBX ; guarda EBX na pilha
+    eval filho 1
+    POP EAX # recupera valor para EAX
+
+    ADD EAX, EBX ; muda operação
+    MOV EBX, EAX ; como se fosse return
+
+NOTE:
+VAR DEC - eval -  (EBP - BASE DA PILHA, ESP - TOPO DA PILHA (STACK POINTER))
+; primeira atribuição:
+PUSH DWORD 0 
+
+ASSIGNMENT
+MOV [EBP - *SHIFT*], EBX
+
+NOTE: 
+IDENTIFIER
+MOV EBX, [EBP - *SHIFT*]
+
+NOTE:
+PRINT
+PUSH EBX ; empilha argumentos para printar
+CALL print ; printa
+POP EBX ; retira os argumentos do print da pilha pra continuar o jogo
+
+NOTE:
+WHILE
+LABEL PRA COMEÇO DO WHILE *ESPECIFICO*
+IDENTIFICADOR DE CADA NÓ, NO NÓ PAI
+
+LOOP_34:
+; COMPARAÇÃO RETORNA EM EBX
+CMP EBX, False ; verifica se o resultado da comparação é falsa
+JE EXIT_34 ;
+
+; intruções filho 1 do while
+
+JMP LOOP_34
+EXIT_34
+
+
+NOTE:
+IF - TRETA
+
+ELSE PRIMEIRO DEPOIS IF
+
+; comparação retorna em ebx
+CMP EBX, False ; verifica se o resultado da comparação é falsa
+JE IF_N
+
+; INSTRUÇÕES DO FILHO ELSE
+JMP END_IF_N
+
+IF_N:
+;INSTRUCOES DO FILHO IF
+
+END_IF_N:
+
+
+CRIA MÉTODO WRITE PROS EVALUATE
 '''
