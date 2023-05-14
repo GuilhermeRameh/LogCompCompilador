@@ -123,7 +123,6 @@ class While(Node):
         #     self.children[1].Evaluate()
         #     condition = self.children[0].Evaluate()
        
-        # writer.Write(f"\nMOV EBX, EAX")
         writer.Write("\nCMP EBX, False")
         writer.Write(f"\nJE EXIT_{self.id}") # DONE: Label dinamica
         writer.Write(f"\nNOP")
@@ -141,10 +140,7 @@ class If(Node):
 
     def Evaluate(self):
         condition = self.children[0].Evaluate()
-        if condition:
-            condition="True"
-        else: condition="False"
-        writer.Write(f"\nMOV {condition}, EBX")
+
         writer.Write(f"CMP EBX, False")
         writer.Write(f"JE IF_{self.id}")
         writer.Write(f"\nNOP")
