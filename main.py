@@ -141,7 +141,7 @@ class If(Node):
     def Evaluate(self):
         condition = self.children[0].Evaluate()
 
-        writer.Write(f"\nCMP EBX, False")
+        writer.Write(f"\nCMP EBX, True")
         writer.Write(f"\nJE IF_{self.id}")
         writer.Write(f"\nNOP")
 
