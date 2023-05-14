@@ -126,7 +126,7 @@ class While(Node):
         #     self.children[1].Evaluate()
         #     condition = self.children[0].Evaluate()
        
-        writer.Write(f"\nMOV {condition}, EBX")
+        writer.Write(f"\nMOV EBX, {condition}")
         writer.Write("\nCMP EBX, False")
         writer.Write(f"\nJE EXIT_{self.id}") # DONE: Label dinamica
 
@@ -233,10 +233,10 @@ class BinOp(Node):
             writer.Write(f"\nSUB EAX, EBX")
             # return child0-child1
         elif self.value=="*":
-            writer.Write(f"\nMUL EAX, EBX")
+            writer.Write(f"\nIMUL EAX, EBX")
             # return child0*child1
         elif self.value=="/":
-            writer.Write(f"\nDIV EAX, EBX")
+            writer.Write(f"\nIDIV EAX, EBX")
             # return child0//child1
         elif self.value=="&&":
             writer.Write(f"\nAND EAX, EBX")
