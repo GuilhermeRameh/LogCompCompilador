@@ -119,20 +119,19 @@ class While(Node):
         writer.Write(f"\nLOOP_{self.id}:") #DONE: Implementar labels dinamicas
         
         condition = self.children[0].Evaluate()
-        if condition:
-            condition="True"
-        else: condition="False"
         # while condition:
         #     self.children[1].Evaluate()
         #     condition = self.children[0].Evaluate()
        
-        writer.Write(f"\nMOV EBX, {condition}")
+        # writer.Write(f"\nMOV EBX, EAX")
         writer.Write("\nCMP EBX, False")
         writer.Write(f"\nJE EXIT_{self.id}") # DONE: Label dinamica
+        writer.Write(f"\nNOP")
 
         self.children[1].Evaluate()
 
         writer.Write(f"\nJMP LOOP_{self.id}") # DONE: dinamica
+        writer.Write(f"\nNOP")
         writer.Write(f"\nEXIT_{self.id}:") # DONE: dinamica
 
 class If(Node):
@@ -148,12 +147,14 @@ class If(Node):
         writer.Write(f"\nMOV {condition}, EBX")
         writer.Write(f"CMP EBX, False")
         writer.Write(f"JE IF_{self.id}")
+        writer.Write(f"\nNOP")
 
         if len(self.children)==3:
             self.children[2].Evaluate()
         
         writer.Write(f"JMP END_IF_{self.id}")
-        writer.Write(f"IF_{self.id}")
+        writer.Write(f"\nNOP")
+        writer.Write(f"IF_{self.id}:")
 
         self.children[1].Evaluate()
 
@@ -197,7 +198,7 @@ class Assignment(Node):
     
     def Evaluate(self):
         ST.Setter(self.children[0].value, self.children[1].Evaluate())
-        shift = self.children[0].Evaluate()[2]
+        shift = ST.Getter(self.children[0].value)[2]
 
         #NOTE: Assembly
         writer.Write(f"\nMOV [EBP{shift}], EBX")
@@ -228,21 +229,27 @@ class BinOp(Node):
 
         if self.value=="+":
             writer.Write(f"\nADD EAX, EBX")
+            writer.Write(f"\nMOV EBX, EAX")
             # return child0+child1
         elif self.value=="-":
             writer.Write(f"\nSUB EAX, EBX")
+            writer.Write(f"\nMOV EBX, EAX")
             # return child0-child1
         elif self.value=="*":
             writer.Write(f"\nIMUL EAX, EBX")
+            writer.Write(f"\nMOV EBX, EAX")
             # return child0*child1
         elif self.value=="/":
             writer.Write(f"\nIDIV EAX, EBX")
+            writer.Write(f"\nMOV EBX, EAX")
             # return child0//child1
         elif self.value=="&&":
             writer.Write(f"\nAND EAX, EBX")
+            writer.Write(f"\nMOV EBX, EAX")
             # return 1 if child0 and child1 else 0
         elif self.value=="||":
             writer.Write(f"\nOR EAX, EBX")
+            writer.Write(f"\nMOV EBX, EAX")
             # return 1 if child0 or child1 else 0
         elif self.value=="==":
             writer.Write(f"\nCMP EAX, EBX")
@@ -259,7 +266,7 @@ class BinOp(Node):
         # # NEW
         # elif self.value==".":
         #     return str(child0) + str(child1)
-        writer.Write(f"\nMOV EBX, EAX")
+        
 
 class UnOp(Node):
     def __init__(self, value, children) -> None:
