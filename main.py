@@ -141,20 +141,20 @@ class If(Node):
     def Evaluate(self):
         condition = self.children[0].Evaluate()
 
-        writer.Write(f"CMP EBX, False")
-        writer.Write(f"JE IF_{self.id}")
+        writer.Write(f"\nCMP EBX, False")
+        writer.Write(f"\nJE IF_{self.id}")
         writer.Write(f"\nNOP")
 
         if len(self.children)==3:
             self.children[2].Evaluate()
         
-        writer.Write(f"JMP END_IF_{self.id}")
+        writer.Write(f"\nJMP END_IF_{self.id}")
         writer.Write(f"\nNOP")
-        writer.Write(f"IF_{self.id}:")
+        writer.Write(f"\nIF_{self.id}:")
 
         self.children[1].Evaluate()
 
-        writer.Write(f"END_IF_{self.id}")
+        writer.Write(f"\nEND_IF_{self.id}:")
 
 
 class Identifier(Node):
