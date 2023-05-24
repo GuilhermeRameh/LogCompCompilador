@@ -10,6 +10,8 @@ reservedWords = [
     "else",
     "end",
     "readline",
+    "return",
+    "function",
 ]
 
 tipagem = [
@@ -44,102 +46,169 @@ class SymbolTable:
         self.dicionario[key] = value
 
 
-global ST
-ST = SymbolTable()
+global globalST
+globalST = SymbolTable()
+
+
+########################## FUNCTABLE ####################
+
+class FuncTable:
+    def __init__(self):
+        self.dicionario = {}
+
+    def Create(self, key, value):
+        self.dicionario[key] = value
+
+    def Getter(self, key):
+        return self.dicionario[key]
+
+global FT
+FT = FuncTable()
 
 ############### Node and Ops Classes ##############
 
 class Node(ABC):
-    def Evaluate(self):
+    def Evaluate(self, ST):
         pass
 
-class VarDec(Node):
-    def __init__(self, value, children) -> None:
+class FuncDec(Node):
+    def __init__(self, value, children):
+                
         self.value = value
         self.children = children
 
-    def Evaluate(self):
+    def Evaluate(self, ST):
+        FT.Create(self.children[0].value, self)
+        
+
+class FuncCall(Node):
+    def __init__(self, value, children):
+        
+        self.children = children
+        self.value = value
+
+    def Evaluate(self, ST):
+        funcDecNode = FT.Getter(self.value.value)
+        localST = SymbolTable()
+        for i in range(len(self.children)):
+            key = funcDecNode.children[1][i].children[0]
+            funcDecNode.children[1][i].Evaluate(localST)
+            localST.Setter(key ,self.children[i].Evaluate(ST))
+        return funcDecNode.children[2].Evaluate(localST)
+
+
+class Return(Node):
+    def __init__(self, children):
+        
+        self.children = children
+
+    def Evaluate(self, ST):
+        self.Exit = True
+        return self.children[0].Evaluate(ST)
+
+class VarDec(Node):
+    def __init__(self, value, children) -> None:
+        
+        self.value = value
+        self.children = children
+
+    def Evaluate(self, ST):
         tipo = self.value
         if len(self.children) == 1:
             if tipo=="Int": atribuicao=("INT",0)
             elif tipo=="String": atribuicao=("STRING","")
-            ST.Create(self.children[0].value, atribuicao)
+            if (type(self.children[0])==str):
+                ST.Create(self.children[0], atribuicao)
+            else: ST.Create(self.children[0].value, atribuicao)
         elif len(self.children) == 2:
-            ST.Create(self.children[0].value, self.children[1].Evaluate())
+            ST.Create(self.children[0].value, self.children[1].Evaluate(ST))
 
 class While(Node):
     def __init__(self, children) -> None:
+        
         self.children = children
 
-    def Evaluate(self):
-        condition = self.children[0].Evaluate()
+    def Evaluate(self, ST):
+        condition = self.children[0].Evaluate(ST)
         while condition:
-            self.children[1].Evaluate()
-            condition = self.children[0].Evaluate()
+            self.children[1].Evaluate(ST)
+            condition = self.children[0].Evaluate(ST)
 
 class If(Node):
     def __init__(self, children) -> None:
+        
         self.children = children
 
-    def Evaluate(self):
-        if self.children[0].Evaluate():
-            self.children[1].Evaluate()
+    def Evaluate(self, ST):
+        if self.children[0].Evaluate(ST):
+            self.children[1].Evaluate(ST)
         else:
             if len(self.children) == 3:
-                self.children[2].Evaluate()
+                self.children[2].Evaluate(ST)
 
 
 class Identifier(Node):
     def __init__(self, value) -> None:
+        
         self.value = value
         self.children = [Node(x) for x in []]
     
-    def Evaluate(self):
+    def Evaluate(self, ST):
         return ST.Getter(self.value)
 
 class Print(Node):
     def __init__(self, children) -> None:
+        
         self.children = children
     
-    def Evaluate(self):
-        toPrint = self.children[0].Evaluate()
+    def Evaluate(self, ST):
+        toPrint = self.children[0].Evaluate(ST)
         if type(toPrint) == tuple:
-            print(self.children[0].Evaluate()[1])
-        else: print(self.children[0].Evaluate())
+            print(self.children[0].Evaluate(ST)[1])
+        else: print(self.children[0].Evaluate(ST))
     
 class Assignment(Node):
     def __init__(self, children) -> None:
+        
         self.children = children
     
-    def Evaluate(self):
-        ST.Setter(self.children[0].value, self.children[1].Evaluate())
+    def Evaluate(self, ST):
+        if (type(self.children[0])==str):
+            ST.Setter(self.children[0], self.children[1].Evaluate(ST))
+        else: ST.Setter(self.children[0].value, self.children[1].Evaluate(ST))
         
 class Block(Node):
     def __init__(self, children) -> None:
+        
         self.children = children
 
-    def Evaluate(self):
+    def Evaluate(self, ST):
         for child in self.children:
-            child.Evaluate()
+            if type(child)==Return:
+                return child.Evaluate(ST)
+            else: child.Evaluate(ST)
+
 
 class BinOp(Node):
     def __init__(self, value, children) -> None:
-            self.value = value
-            self.children = children
+        
+        self.value = value
+        self.children = children
 
-    def Evaluate(self):
+    def Evaluate(self, ST):
         #NEW
         #NOTE: Dando erro quando uma operação de dois tipos diferentes de variaveis
         child0Type = None
         child1Type = None
-        if type(self.children[0].Evaluate())==tuple:
-            child0 = self.children[0].Evaluate()[1]
-            child0Type = self.children[0].Evaluate()[0]
-        else: child0 = self.children[0].Evaluate()
-        if type(self.children[1].Evaluate())==tuple:
-            child1 = self.children[1].Evaluate()[1]
-            child1Type = self.children[1].Evaluate()[0]
-        else: child1 = self.children[1].Evaluate()
+        if type(self.children[0].Evaluate(ST))==tuple:
+            child0 = self.children[0].Evaluate(ST)[1]
+            child0Type = self.children[0].Evaluate(ST)[0]
+        else: child0 = self.children[0].Evaluate(ST)
+        if type(self.children[1].Evaluate(ST))==tuple:
+            child1 = self.children[1].Evaluate(ST)[1]
+            child1Type = self.children[1].Evaluate(ST)[0]
+        else: child1 = self.children[1].Evaluate(ST)
+
 
         if (child0Type != None and child1Type != None):
             if child0Type != child1Type and (self.value != "." and self.value != "=="):
@@ -169,13 +238,14 @@ class BinOp(Node):
 
 class UnOp(Node):
     def __init__(self, value, children) -> None:
+        
         self.value = value
         self.children = children
 
-    def Evaluate(self):
-        if type(self.children[0].Evaluate())==tuple:
-            child0 = self.children[0].Evaluate()[1]
-        else: child0 = self.children[0].Evaluate()
+    def Evaluate(self, ST):
+        if type(self.children[0].Evaluate(ST))==tuple:
+            child0 = self.children[0].Evaluate(ST)[1]
+        else: child0 = self.children[0].Evaluate(ST)
 
         if self.value=="-":
             return -child0
@@ -185,18 +255,20 @@ class UnOp(Node):
 
 class IntVal(Node):
     def __init__(self, value) -> None:
+        
         self.value = value
         self.children = [Node(x) for x in []]
 
-    def Evaluate(self):
+    def Evaluate(self, ST):
         return self.value
     
 class StringVal(Node):
     def __init__(self, value) -> None:
+        
         self.value = value
         self.children = [Node(x) for x in []]
 
-    def Evaluate(self):
+    def Evaluate(self, ST):
         return self.value
 
 class NoOp(Node):
@@ -287,8 +359,12 @@ class Tokenizer:
                 tipo = "DIV"
                 valor = letra
                 self.position += 1
+            # NEW
+            elif letra == ",":
+                tipo = "VIRGULA"
+                valor = letra
+                self.position += 1
 
-            #NEW
             #NOTE: Lidando com operador CONCATENAR STRING
             elif letra == ".":
                 tipo = "CONCAT"
@@ -451,11 +527,78 @@ class Parser:
                     elif self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
                         raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
                     return VarDec(tipo, [idNode])
-
                 else:
                     raise Exception(f"ERRO PARSER:\n > Declaração de variável não usou tipagem corretamente.")
+            elif self.tokenizer.next.tipo == "OPENPAR":
+                # Consome o OPENPAR
+                self.tokenizer.selectNext()
+                childrenList = []
+                while self.tokenizer.next.tipo != "CLOSEPAR":
+                    nodeRelExp = self.parseRelExpression()
+                    childrenList.append(nodeRelExp)
+                    self.tokenizer.selectNext()
+                    if self.tokenizer.next.tipo == "VIRGULA":
+                        self.tokenizer.selectNext()
+                # Consome o CLOSEPAR
+                self.tokenizer.selectNext()
+                #NEW NOTE: Monta o node FUNCCALL
+                return FuncCall(idNode, childrenList)
             else:
                 raise Exception(f"ERRO PARSER:\n > Variavel sem assign ou fora de println")
+            
+        elif self.tokenizer.next.tipo == "RETURN":
+            # COnsome o return
+            self.tokenizer.selectNext()
+            nodeRelExp = self.parseRelExpression()
+            #NEW NOTE: Monra o node RETURN
+            return Return([nodeRelExp])
+        
+        elif self.tokenizer.next.tipo == "FUNCTION":
+            # Consome o FUNCTION
+            self.tokenizer.selectNext()
+            if self.tokenizer.next.tipo == "IDENTIFIER":
+                idNode = Identifier(self.tokenizer.next.valor)
+                # Consome o IDEN
+                self.tokenizer.selectNext()
+                if self.tokenizer.next.tipo == "OPENPAR":
+                    # CONSOME OPENPAR
+                    self.tokenizer.selectNext()
+                    decList = []
+                    while self.tokenizer.next.tipo != "CLOSEPAR":
+                        if self.tokenizer.next.tipo == "IDENTIFIER":
+                            nodeArgumento = self.tokenizer.next.valor
+                            self.tokenizer.selectNext()
+                            if self.tokenizer.next.tipo == "VARDEC":
+                                self.tokenizer.selectNext()
+                                if self.tokenizer.next.tipo == "TYPE":
+                                    tipo = self.tokenizer.next.valor
+                                    self.tokenizer.selectNext()
+                                    varDecNode = VarDec(tipo, [nodeArgumento])
+                                    decList.append(varDecNode)
+                                    if self.tokenizer.next.tipo == "VIRGULA":
+                                        self.tokenizer.selectNext()
+                    if self.tokenizer.next.tipo == "CLOSEPAR":
+                        self.tokenizer.selectNext()
+                    if self.tokenizer.next.tipo == "VARDEC":
+                        self.tokenizer.selectNext()
+                        if self.tokenizer.next.tipo == "TYPE":
+                            funcType = self.tokenizer.next.valor
+                            self.tokenizer.selectNext()
+                            if self.tokenizer.next.tipo != "NEXTLINE" and self.tokenizer.next.tipo != "EOF":
+                                raise Exception(f"ERRO PARSER:\n > Devia ter pulado de linha com '\\n'")
+                            childrenList = []
+                            while self.tokenizer.next.tipo != "END":
+                                childrenList.append(self.parseStatment())
+                            self.tokenizer.selectNext()
+                            blockNode = Block(childrenList)
+                            return FuncDec(funcType, [idNode, decList, blockNode])
+                        else:
+                            raise Exception(f"ERRO PARSER:\n > Função chamado incorretamente: Devia ser um token IDENTIFIER")
+                else:
+                    raise Exception(f"ERRO PARSER:\n > Função chamado incorretamente: Devia ter aberto parenteses")
+            else:
+                raise Exception(f"ERRO PARSER:\n > Função chamado incorretamente")    
+
 
         elif self.tokenizer.next.tipo == "PRINTLN":
             self.tokenizer.selectNext()
@@ -547,14 +690,13 @@ class Parser:
 
     def parseBlock(self):
         childrenList = []
-        while self.tokenizer.next.tipo != "EOF":
+        while self.tokenizer.next.tipo != "EOF" :
             childrenList.append(self.parseStatment())
         return Block(childrenList)
 
 
     def parseFactor(self):
         thisNode = NoOp()
-
         if self.tokenizer.next.tipo == "INT":
             #copia para resultado e pega proximo valor
             # bufferFactor = int(self.tokenizer.next.valor)
@@ -565,13 +707,23 @@ class Parser:
         elif self.tokenizer.next.tipo == "IDENTIFIER":
             thisNode = Identifier(self.tokenizer.next.valor)
             self.tokenizer.selectNext()
+            if self.tokenizer.next.tipo == "OPENPAR":
+                self.tokenizer.selectNext()
+                varList = []
+                while self.tokenizer.next.tipo != "CLOSEPAR":
+                    varList.append(self.parseRelExpression())
+                    if self.tokenizer.next.tipo == "VIRGULA":
+                        self.tokenizer.selectNext()
+                self.tokenizer.selectNext()
+                
+                return FuncCall(thisNode, varList)
             return thisNode
         
         elif self.tokenizer.next.tipo == "STRING":
             thisNode = StringVal((self.tokenizer.next.tipo, self.tokenizer.next.valor))
             self.tokenizer.selectNext()
             return thisNode
-            
+        
         else:
             if self.tokenizer.next.tipo == "PLUS":
                 self.tokenizer.selectNext()
@@ -634,7 +786,6 @@ class Parser:
     def parseExpression(self):
 
         thisNode = self.parseTerm()
-
         #enquanto token for +, -, *, /
         while self.tokenizer.next.tipo in ["PLUS", "MINUS", "OR", "CONCAT"]:
             #Se for +
@@ -657,7 +808,6 @@ class Parser:
                 self.tokenizer.selectNext()
                 thisNode = BinOp(".", [thisNode, self.parseTerm()])
 
-
         return thisNode
 
     def run(self, code):
@@ -665,7 +815,7 @@ class Parser:
         NodetoReturn = self.parseBlock()
         #checa se terminou de consumir
         if self.tokenizer.next.tipo == "EOF":
-            return NodetoReturn.Evaluate()
+            return NodetoReturn.Evaluate(globalST)
         else:
             raise Exception(f"ERRO PARSER:\n O parser saiu e não consumiu todos os tokens.")
 
