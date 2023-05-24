@@ -1,5 +1,6 @@
 import sys
 from abc import ABC
+import inspect
 
 ############### Lista de palavras reservadas #############
 
@@ -88,6 +89,7 @@ class FuncCall(Node):
         self.value = value
 
     def Evaluate(self, ST):
+
         funcDecNode = FT.Getter(self.value.value)
         localST = SymbolTable()
         for i in range(len(self.children)):
@@ -103,7 +105,6 @@ class Return(Node):
         self.children = children
 
     def Evaluate(self, ST):
-        self.Exit = True
         return self.children[0].Evaluate(ST)
 
 class VarDec(Node):
@@ -158,14 +159,13 @@ class Identifier(Node):
 
 class Print(Node):
     def __init__(self, children) -> None:
-        
         self.children = children
     
     def Evaluate(self, ST):
         toPrint = self.children[0].Evaluate(ST)
         if type(toPrint) == tuple:
-            print(self.children[0].Evaluate(ST)[1])
-        else: print(self.children[0].Evaluate(ST))
+            print(toPrint[1])
+        else: print(toPrint)
     
 class Assignment(Node):
     def __init__(self, children) -> None:
@@ -186,7 +186,7 @@ class Block(Node):
         for child in self.children:
             if type(child)==Return:
                 return child.Evaluate(ST)
-            else: child.Evaluate(ST)
+            child.Evaluate(ST)
 
 
 class BinOp(Node):
