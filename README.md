@@ -7,4 +7,6 @@
 
 
 
-![diagramaSintatico drawio](https://user-images.githubusercontent.com/62567654/224727579-09d7a08a-a793-4d03-96e0-fc487edefee2.png)
+![BlockStatement](https://github.com/GuilhermeRameh/LogCompCompilador/assets/62567654/2ed9425c-74d0-454e-a716-ca170929e48c)
+
+![Rest drawio](https://github.com/GuilhermeRameh/LogCompCompilador/assets/62567654/0d328d54-ca73-47b8-9133-8cdc17c6cfb1)
